@@ -1,0 +1,12 @@
+services:
+  db:
+    image: postgres
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: 'trade_smart_api'
+      POSTGRES_USER: 'trade_smart_api'
+      POSTGRES_DB: 'trade_smart_api'
+    volumes:
+      - ./data:/var/lib/postgresql/data
