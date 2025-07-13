@@ -12,3 +12,9 @@ pytest-cov
 black
 model-bakery
 isort
+
+gunicorn
+
+celery
+redis
+yfinance
