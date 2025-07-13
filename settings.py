@@ -164,4 +164,8 @@ CELERY_BEAT_SCHEDULE = {
         "task": "trade_smart.tasks.fetch_all_tickers",
         "schedule": crontab(minute="*/15"),
     },
+    "compute_all_indicators_15m": {
+        "task": "trade_smart.tasks.compute_all_indicators",
+        "schedule": crontab(minute="*/15"),
+    },
 }

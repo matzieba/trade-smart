@@ -11,7 +11,9 @@ from celery.schedules import crontab
 from django.conf import settings
 from django.db import IntegrityError, transaction
 
+from trade_smart.analytics.ta_engine import calculate_indicators
 from trade_smart.celery import app
+from trade_smart.models.analytics import TechnicalIndicator
 from trade_smart.models.market_data import MarketData
 
 logger = logging.getLogger(__name__)
@@ -20,7 +22,7 @@ logger = logging.getLogger(__name__)
 # Configuration – override in settings.py if required
 ###############################################################################
 
-DEFAULT_LOOKBACK_DAYS: int = getattr(settings, "MARKET_LOOKBACK_DAYS", 10)
+DEFAULT_LOOKBACK_DAYS: int = getattr(settings, "MARKET_LOOKBACK_DAYS", 365)
 TICKERS: List[str] = getattr(settings, "MARKET_TICKERS", ["AAPL", "MSFT", "TSLA"])
 
 ###############################################################################
@@ -137,6 +139,31 @@ def fetch_all_tickers() -> None:
         fetch_daily_ohlcv.delay(symbol)
 
 
+@shared_task(bind=True, max_retries=2, default_retry_delay=120)
+def compute_indicators(self, ticker: str):
+    try:
+        objects = calculate_indicators(ticker)
+        if not objects:
+            return f"No indicator points for {ticker}"
+
+        with transaction.atomic():
+            TechnicalIndicator.objects.bulk_create(
+                objects,
+                update_conflicts=True,
+                update_fields=["value"],
+                unique_fields=["ticker", "date", "name"],
+            )
+        return f"{len(objects)} indicator rows stored for {ticker}"
+    except Exception as exc:
+        raise self.retry(exc=exc)
+
+
+@shared_task
+def compute_all_indicators():
+    for sym in TICKERS:
+        compute_indicators.delay(sym)
+
+
 ###############################################################################
 # Periodic job registration
 ###############################################################################
@@ -151,4 +178,9 @@ def setup_periodic_tasks(sender, **kwargs):
         crontab(minute="*/15"),  # every 15 minutes
         fetch_all_tickers.s(),
         name="Fetch OHLCV for tracked tickers",
+    )
+    sender.add_periodic_task(
+        crontab(minute=0, hour=2),
+        compute_all_indicators.s(),
+        name="Compute daily technical indicators",
     )

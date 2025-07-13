@@ -18,3 +18,5 @@ gunicorn
 celery
 redis
 yfinance
+pandas_ta
+setuptools
