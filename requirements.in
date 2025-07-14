@@ -20,3 +20,11 @@ redis
 yfinance
 pandas_ta
 setuptools
+langchain
+langgraph
+chromadb
+sentence-transformers
+ollama
+langchain_community
+langchain-ollama
+duckduckgo-search

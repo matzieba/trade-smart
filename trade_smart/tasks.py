@@ -11,10 +11,13 @@ from celery.schedules import crontab
 from django.conf import settings
 from django.db import IntegrityError, transaction
 
+from trade_smart.agent_service.runner import run_for_portfolio
 from trade_smart.analytics.ta_engine import calculate_indicators
 from trade_smart.celery import app
+from trade_smart.models import Portfolio
 from trade_smart.models.analytics import TechnicalIndicator
 from trade_smart.models.market_data import MarketData
+from trade_smart.news.ingest import ingest_for_ticker
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +26,7 @@ logger = logging.getLogger(__name__)
 ###############################################################################
 
 DEFAULT_LOOKBACK_DAYS: int = getattr(settings, "MARKET_LOOKBACK_DAYS", 365)
-TICKERS: List[str] = getattr(settings, "MARKET_TICKERS", ["AAPL", "MSFT", "TSLA"])
+TICKERS: List[str] = getattr(settings, "MARKET_TICKERS", ["VWCE.DE"])
 
 ###############################################################################
 # Helpers (single-responsibility functions)
@@ -164,6 +167,30 @@ def compute_all_indicators():
         compute_indicators.delay(sym)
 
 
+@shared_task
+def issue_portfolio_advice(portfolio_id: int):
+    pf = Portfolio.objects.get(id=portfolio_id)
+    run_for_portfolio(pf)
+
+
+@shared_task
+def nightly_all_portfolios():
+    for pf_id in Portfolio.objects.values_list("id", flat=True):
+        issue_portfolio_advice.delay(pf_id)
+
+
+@shared_task
+def ingest_news_all():
+    for tkr in TICKERS:
+        ingest_news_ticker.delay(tkr)
+
+
+@shared_task
+def ingest_news_ticker(ticker: str):
+    cnt = ingest_for_ticker(ticker)
+    logger.info("Ingested %s news docs for %s", cnt, ticker)
+
+
 ###############################################################################
 # Periodic job registration
 ###############################################################################
@@ -183,4 +210,14 @@ def setup_periodic_tasks(sender, **kwargs):
         crontab(minute=0, hour=2),
         compute_all_indicators.s(),
         name="Compute daily technical indicators",
+    )
+    sender.add_periodic_task(
+        crontab(minute=30, hour=2),
+        nightly_all_portfolios.s(),
+        name="Nightly advice generation",
+    )
+    sender.add_periodic_task(
+        crontab(minute="*/30"),
+        ingest_news_all.s(),
+        name="Fetch & store fresh news articles",
     )
