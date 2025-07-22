@@ -39,7 +39,7 @@ def synth_llm_node(state):
         news=state.get("news_macro"),
         price=state.get("last_px"),
     )
-    resp = llm.predict_messages([SYS, HumanMessage(content=prompt)])
+    resp = llm.invoke([SYS, HumanMessage(content=prompt)])
     try:
         js = json.loads(resp.content if hasattr(resp, "content") else resp)
         state["advice"] = {

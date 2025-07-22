@@ -25,8 +25,8 @@ logger = logging.getLogger(__name__)
 # Configuration – override in settings.py if required
 ###############################################################################
 
-DEFAULT_LOOKBACK_DAYS: int = getattr(settings, "MARKET_LOOKBACK_DAYS", 365)
-TICKERS: List[str] = getattr(settings, "MARKET_TICKERS", ["VWCE.DE"])
+DEFAULT_LOOKBACK_DAYS: int = getattr(settings, "MARKET_LOOKBACK_DAYS", 30)
+TICKERS: List[str] = getattr(settings, "MARKET_TICKERS", ["AAPL", "NVDA.US", "2B76.DE"])
 
 ###############################################################################
 # Helpers (single-responsibility functions)
@@ -179,16 +179,16 @@ def nightly_all_portfolios():
         issue_portfolio_advice.delay(pf_id)
 
 
-@shared_task
-def ingest_news_all():
-    for tkr in TICKERS:
-        ingest_news_ticker.delay(tkr)
-
-
-@shared_task
-def ingest_news_ticker(ticker: str):
-    cnt = ingest_for_ticker(ticker)
-    logger.info("Ingested %s news docs for %s", cnt, ticker)
+# @shared_task
+# def ingest_news_all():
+#     for tkr in TICKERS:
+#         ingest_news_ticker.delay(tkr)
+#
+#
+# @shared_task
+# def ingest_news_ticker(ticker: str):
+#     cnt = ingest_for_ticker(ticker)
+#     logger.info("Ingested %s news docs for %s", cnt, ticker)
 
 
 ###############################################################################
@@ -215,9 +215,4 @@ def setup_periodic_tasks(sender, **kwargs):
         crontab(minute=30, hour=2),
         nightly_all_portfolios.s(),
         name="Nightly advice generation",
-    )
-    sender.add_periodic_task(
-        crontab(minute="*/30"),
-        ingest_news_all.s(),
-        name="Fetch & store fresh news articles",
     )

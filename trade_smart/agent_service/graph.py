@@ -4,9 +4,9 @@ from langchain_core.runnables import Runnable
 from langgraph.graph import StateGraph, END
 
 from trade_smart.agent_service import tools
-from trade_smart.agent_service.news_macro import news_macro_node
+from trade_smart.agent_service.news_macro import web_news_node
 from trade_smart.agent_service.synth_llm import synth_llm_node
-from trade_smart.agent_service.web_news import web_news_node
+
 from trade_smart.analytics.portfolio_analyser import analyse
 from trade_smart.analytics.ta_engine import calculate_indicators
 from trade_smart.models import Portfolio
@@ -99,13 +99,13 @@ def build_graph() -> Runnable:
     g.add_node("market", market_node)
     g.add_node("tech", tech_node)
     g.add_node("pf", pf_node)
-    g.add_node("news", web_news_node)
+    g.add_node("news_macro", web_news_node)
     g.add_node("synth", synth_llm_node)
 
     g.set_entry_point("market")
     g.add_edge("market", "tech")
     g.add_edge("tech", "pf")
-    g.add_edge("pf", "news")
-    g.add_edge("news", "synth")
+    g.add_edge("pf", "news_macro")
+    g.add_edge("news_macro", "synth")
     g.add_edge("synth", END)
     return g.compile()

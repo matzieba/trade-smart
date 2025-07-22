@@ -160,12 +160,9 @@ CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = "UTC"
 
 CELERY_BEAT_SCHEDULE = {
-    "fetch_ohlcv_every_15m": {
-        "task": "trade_smart.tasks.fetch_all_tickers",
-        "schedule": crontab(minute="*/15"),
-    },
-    "compute_all_indicators_15m": {
-        "task": "trade_smart.tasks.compute_all_indicators",
+    "nightly_all_portfolios": {
+        "task": "trade_smart.tasks.nightly_all_portfolios",
         "schedule": crontab(minute="*/15"),
     },
 }
+ALPHAVANTAGE_KEY = os.environ.get("ALPHAVANTAGE_KEY" "")
