@@ -166,3 +166,4 @@ CELERY_BEAT_SCHEDULE = {
     },
 }
 ALPHAVANTAGE_KEY = os.environ.get("ALPHAVANTAGE_KEY" "")
+FMP_KEY = os.environ.get("FMP_KEY" "")

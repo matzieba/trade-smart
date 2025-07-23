@@ -13,3 +13,4 @@ class NewsArticle(TimeStampedModel):
     # we keep vector only in Chroma → not in SQL
     class Meta:
         indexes = [models.Index(fields=["ticker", "-published_at"])]
+        unique_together = ("url", "published_at")

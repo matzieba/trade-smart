@@ -14,10 +14,9 @@ from django.db import IntegrityError, transaction
 from trade_smart.agent_service.runner import run_for_portfolio
 from trade_smart.analytics.ta_engine import calculate_indicators
 from trade_smart.celery import app
-from trade_smart.models import Portfolio
+from trade_smart.models import Portfolio, Position
 from trade_smart.models.analytics import TechnicalIndicator
 from trade_smart.models.market_data import MarketData
-from trade_smart.news.ingest import ingest_for_ticker
 
 logger = logging.getLogger(__name__)
 
@@ -25,9 +24,7 @@ logger = logging.getLogger(__name__)
 # Configuration – override in settings.py if required
 ###############################################################################
 
-DEFAULT_LOOKBACK_DAYS: int = getattr(settings, "MARKET_LOOKBACK_DAYS", 30)
-TICKERS: List[str] = getattr(settings, "MARKET_TICKERS", ["AAPL", "NVDA.US", "2B76.DE"])
-
+DEFAULT_LOOKBACK_DAYS: int = getattr(settings, "MARKET_LOOKBACK_DAYS", 365)
 ###############################################################################
 # Helpers (single-responsibility functions)
 ###############################################################################
@@ -61,28 +58,42 @@ def _download_ohlcv(ticker: str, *, days: int = DEFAULT_LOOKBACK_DAYS) -> pd.Dat
 
 
 def _df_to_objects(df: pd.DataFrame, ticker: str) -> List[MarketData]:
-    """
-    Convert a MultiIndex OHLCV DataFrame into MarketData Django objects.
-    """
+
     objects: List[MarketData] = []
+    logger.debug("DataFrame columns for %s: %s", ticker, df.columns)
+    col_tickers = df.columns.get_level_values(1).unique()
+    if ticker not in col_tickers:
+        actual_ticker = col_tickers[0] if len(col_tickers) == 1 else None
+        logger.warning(
+            "Expected ticker '%s' not in DataFrame columns: %s", ticker, col_tickers
+        )
+    else:
+        actual_ticker = ticker
+
+    if not actual_ticker:
+        logger.error(
+            "Frame columns do not contain expected ticker, skipping all rows for %s",
+            ticker,
+        )
+        return []
 
     for ts, row in df.iterrows():
         try:
             objects.append(
                 MarketData(
-                    ticker=ticker,
+                    ticker=actual_ticker,
                     date=ts.date(),
-                    open=row["Open"][ticker],
-                    high=row["High"][ticker],
-                    low=row["Low"][ticker],
-                    close=row["Close"][ticker],
-                    volume=row["Volume"][ticker],
+                    open=row["Open"][actual_ticker],
+                    high=row["High"][actual_ticker],
+                    low=row["Low"][actual_ticker],
+                    close=row["Close"][actual_ticker],
+                    volume=row["Volume"][actual_ticker],
                 )
             )
-        except KeyError as exc:  # malformed data row
+        except (KeyError, IndexError, TypeError) as exc:  # malformed data row
             logger.warning(
                 "Malformed row for %s on %s: %s",
-                ticker,
+                actual_ticker,
                 ts,
                 exc,
                 exc_info=True,
@@ -138,7 +149,8 @@ def fetch_all_tickers() -> None:
     """
     Enqueue a download task for every configured ticker.
     """
-    for symbol in TICKERS:
+    tickers = [position.ticker for position in Position.objects.all()]
+    for symbol in tickers:
         fetch_daily_ohlcv.delay(symbol)
 
 
@@ -163,7 +175,7 @@ def compute_indicators(self, ticker: str):
 
 @shared_task
 def compute_all_indicators():
-    for sym in TICKERS:
+    for sym in [position.ticker for position in Position.objects.all()]:
         compute_indicators.delay(sym)
 
 

@@ -47,52 +47,6 @@ def pf_node(state):
     return state
 
 
-# --- Node-4 Macro node -------------------------------------------------------
-def macro_node(state):
-    state["macro"] = tools.macro_sentiment()
-    return state
-
-
-# --- Node-5 Synthesizer w/ RULES --------------------------------------------
-def rule_engine(state):
-    tech = state.get("tech", {})
-    macro = state.get("macro")
-    close = state.get("last_px")
-    weights = state["pf_metrics"].get("weights", {})
-
-    action, conf, why = "HOLD", 0.5, []
-
-    # MA crossover
-    if close and tech.get("SMA_50") and tech.get("SMA_200"):
-        if close > tech["SMA_50"] > tech["SMA_200"]:
-            action, conf = "BUY", 0.7
-            why.append("bullish golden-cross")
-        elif close < tech["SMA_50"] < tech["SMA_200"]:
-            action, conf = "SELL", 0.7
-            why.append("bearish death-cross")
-
-    # RSI extremes
-    if tech.get("RSI_14"):
-        if tech["RSI_14"] > 70:
-            action, conf = "SELL", max(conf, 0.6)
-            why.append("RSI overbought")
-        elif tech["RSI_14"] < 35:
-            action, conf = "BUY", max(conf, 0.6)
-            why.append("RSI oversold")
-
-    # Macro override
-    if macro == "RISK_OFF" and action == "BUY":
-        action, conf = "HOLD", 0.4
-        why.append("macro risk-off override")
-
-    state["advice"] = {
-        "action": action,
-        "confidence": round(conf, 3),
-        "rationale": "; ".join(why) or "No strong signal.",
-    }
-    return state
-
-
 # -------- Assemble DAG -------------------------------------------------------
 def build_graph() -> Runnable:
     g = StateGraph(AdviceState)
