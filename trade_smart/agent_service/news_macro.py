@@ -4,7 +4,6 @@ import re
 import json
 import logging
 import datetime as dt
-from concurrent.futures import ThreadPoolExecutor
 from typing import List, Dict, Any
 from decimal import Decimal
 
@@ -44,42 +43,66 @@ def _get_llm():
 
 
 def _etf_sentiment(ticker: str) -> Dict[str, Any]:
-    holdings = get_etf_constituents(ticker, top_n=10)
+    holdings = get_etf_constituents(ticker, top_n=3)
     if not holdings:
-        # fallback – should not happen, but stay defensive
-        headlines = gather_recent_headlines(ticker)
-        return classify_sentiment(headlines)
+        headlines, raw_news = gather_recent_headlines(ticker)
+        sentiment_result = classify_sentiment(ticker, headlines)
+        _save_news_articles(ticker, raw_news, sentiment_result["score"])
+        return sentiment_result
 
-    # run headline+sentiment in parallel to save latency
-    def _one(sym):
-        h = gather_recent_headlines(sym)
-        s = classify_sentiment(h)
-        return sym, h, s
+    total_score = Decimal(0)
+    num_scores = 0
+    all_summaries = []
 
-    with ThreadPoolExecutor(max_workers=min(8, len(holdings))) as ex:
-        results = list(ex.map(lambda p: _one(p[0]), holdings))
+    # Translate holding names to tickers where necessary
+    translated_holdings = []
+    for holding_identifier, weight in holdings:
+        # Heuristic: if it contains a space, it's likely a name
+        if " " in holding_identifier:
+            try:
+                ticker_from_name = translate_holding_to_ticker(holding_identifier)
+                translated_holdings.append((ticker_from_name, weight))
+                logger.info(
+                    f"Translated '{holding_identifier}' to '{ticker_from_name}'"
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Could not translate '{holding_identifier}' to ticker, using original: {e}"
+                )
+                translated_holdings.append((holding_identifier, weight))
+        else:
+            translated_holdings.append((holding_identifier, weight))
+    holdings = translated_holdings
 
-    # weighted aggregation
-    weighted_score = 0.0
-    comp_detail = {}
-    for (sym, weight), (sym2, heads, sent) in zip(holdings, results):
-        score = float(sent["score"])
-        weighted_score += weight * score
-        comp_detail[sym2] = {
-            "weight": round(weight, 4),
-            "score": score,
-            "summary": sent["summary"],
+    for holding_ticker, _ in holdings:
+        try:
+            headlines, raw_news = gather_recent_headlines(holding_ticker)
+            sentiment_result = classify_sentiment(holding_ticker, headlines)
+            score = Decimal(str(sentiment_result.get("score", 0.0)))
+            summary = sentiment_result.get("summary", "")
+
+            total_score += score
+            num_scores += 1
+            if summary:
+                all_summaries.append(f"{holding_ticker}: {summary}")
+
+            _save_news_articles(holding_ticker, raw_news, score)
+
+        except Exception as exc:
+            logger.warning(f"Error processing sentiment for {holding_ticker}: {exc}")
+
+    if num_scores > 0:
+        avg_score = total_score / num_scores
+        overall_summary = (
+            f"Aggregated sentiment for {ticker} constituents: "
+            + "; ".join(all_summaries)
+        )
+        return {"summary": overall_summary, "score": float(avg_score)}
+    else:
+        return {
+            "summary": f"Could not determine sentiment for {ticker} constituents.",
+            "score": 0.0,
         }
-
-    summary = (
-        f"ETF {ticker}: weighted sentiment {weighted_score:+.2f} "
-        f"(components: {', '.join(f'{k}:{v[['score']]:+.2f}' for k,v in comp_detail.items())})"
-    )
-    return {
-        "summary": summary,
-        "score": round(weighted_score, 3),
-        "components": comp_detail,
-    }
 
 
 # --------------------------------------------------------------------------- #
@@ -139,15 +162,7 @@ def _yfinance_news(ticker: str, limit: int = 25) -> List[Dict]:
         import yfinance as yf
 
         news = yf.Ticker(ticker).news or []
-        out, seen = [], set()
-        for item in news:
-            ttl = item.get("title") or ""
-            if ttl not in seen:
-                out.append(item)
-                seen.add(ttl)
-            if len(out) >= limit:
-                break
-        return out
+        return news
     except Exception as exc:
         logger.debug("yFinance news error: %s", exc)
         return []
@@ -222,7 +237,7 @@ def _save_news_articles(
 
 
 # --------------------------------------------------------------------------- #
-def gather_recent_headlines(ticker: str) -> List[str]:
+def gather_recent_headlines(ticker: str) -> tuple[List[str], List[Dict]]:
     """
     (1) yfinance  → (2) Alpha-Vantage  → (3) Yahoo-RSS  → (4) DuckDuckGo
     Stop at first source that returns anything ≥1 headline.
@@ -234,13 +249,13 @@ def gather_recent_headlines(ticker: str) -> List[str]:
         or _duckduckgo_news(ticker)
     )
 
-    titles = [r.get("title") or r.get("title_text", "") for r in raw]
+    titles = [r.get("content").get("title") or r.get("title_text", "") for r in raw]
     seen, uniq = set(), []
     for t in titles:
         if t and t not in seen:
             uniq.append(t)
             seen.add(t)
-    return uniq[:25]
+    return uniq[:25], raw
 
 
 # --------------------------------------------------------------------------- #
@@ -301,25 +316,26 @@ def web_news_node(state: Dict[str, Any]) -> Dict[str, Any]:
         state["raw_headlines"] = []
         state["news_macro"] = _etf_sentiment(ticker)
     else:
-        raw_news = (
-            _yfinance_news(ticker)
-            or _alpha_vantage_news(ticker)
-            or _yahoo_rss_news(ticker)
-            or _duckduckgo_news(ticker)
-        )
-        headlines = [r.get("title") or r.get("title_text", "") for r in raw_news]
-        seen, uniq = set(), []
-        for t in headlines:
-            if t and t not in seen:
-                uniq.append(t)
-                seen.add(t)
-        headlines = uniq[:25]
-
+        headlines, raw_news = gather_recent_headlines(ticker)
         state["raw_headlines"] = headlines
         sentiment_result = classify_sentiment(ticker, headlines)
         state["news_macro"] = sentiment_result
         _save_news_articles(ticker, raw_news, sentiment_result["score"])
     return state
+
+
+def translate_holding_to_ticker(holding_name: str) -> str:
+    """
+    Translate a holding name (e.g., 'Nvidia Corp') to a ticker (e.g., 'NVDA').
+    """
+    llm = _get_llm()
+    prompt = (
+        f"You are a financial expert. Your task is to return just ticker for a given company name. Nothing else."
+        f"Given the holding name '{holding_name}', what is its stock ticker?"
+    )
+    response = llm.invoke(prompt)
+    # The response should be just the ticker, so we can strip any extra whitespace.
+    return response.content.strip()
 
 
 # manual test:  python -m trade_smart.agent_service.news_macro AAPL

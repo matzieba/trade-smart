@@ -164,6 +164,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "trade_smart.tasks.nightly_all_portfolios",
         "schedule": crontab(minute="*/15"),
     },
+    "fetch_news_for_all_positions": {
+        "task": "trade_smart.tasks.fetch_news_for_all_positions",
+        "schedule": crontab(minute=0, hour="*/6"),  # Every 6 hours
+    },
 }
 ALPHAVANTAGE_KEY = os.environ.get("ALPHAVANTAGE_KEY" "")
 FMP_KEY = os.environ.get("FMP_KEY" "")

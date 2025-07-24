@@ -17,6 +17,7 @@ from trade_smart.celery import app
 from trade_smart.models import Portfolio, Position
 from trade_smart.models.analytics import TechnicalIndicator
 from trade_smart.models.market_data import MarketData
+from trade_smart.agent_service.news_macro import web_news_node
 
 logger = logging.getLogger(__name__)
 
@@ -189,6 +190,18 @@ def issue_portfolio_advice(portfolio_id: int):
 def nightly_all_portfolios():
     for pf_id in Portfolio.objects.values_list("id", flat=True):
         issue_portfolio_advice.delay(pf_id)
+
+
+@shared_task
+def fetch_news_for_all_positions():
+    unique_tickers = set()
+    for portfolio in Portfolio.objects.all():
+        for position in portfolio.positions.all():
+            unique_tickers.add(position.ticker)
+
+    for ticker in unique_tickers:
+        logger.info(f"Fetching news for ticker: {ticker}")
+        web_news_node({"ticker": ticker})
 
 
 # @shared_task
