@@ -18,6 +18,7 @@ from trade_smart.models import Portfolio, Position
 from trade_smart.models.analytics import TechnicalIndicator
 from trade_smart.models.market_data import MarketData
 from trade_smart.agent_service.news_macro import web_news_node
+from trade_smart.services.email_service import EmailNotificationService
 
 logger = logging.getLogger(__name__)
 
@@ -50,8 +51,14 @@ def _download_ohlcv(ticker: str, *, days: int = DEFAULT_LOOKBACK_DAYS) -> pd.Dat
     if df.empty:
         logger.info("No market data returned for ticker=%s", ticker)
         return df
-
-    # Force a unified MultiIndex regardless of number of tickers requested
+    currency = ""
+    try:
+        currency = yf.Ticker(ticker).fast_info.get("currency")
+    except Exception:
+        logger.info(f"No currency found for ticker={ticker}")
+    if currency in ("GBp", "GBX"):
+        price_cols = ["Open", "High", "Low", "Close"]
+        df[price_cols] = df[price_cols] / 100.0  # pence -> pounds
     if not isinstance(df.columns, pd.MultiIndex):
         df.columns = pd.MultiIndex.from_product([df.columns, [ticker]])
 
@@ -183,7 +190,9 @@ def compute_all_indicators():
 @shared_task
 def issue_portfolio_advice(portfolio_id: int):
     pf = Portfolio.objects.get(id=portfolio_id)
-    run_for_portfolio(pf)
+    all_evaluated = run_for_portfolio(pf)
+    if all_evaluated:
+        EmailNotificationService().send_advice_email(pf)
 
 
 @shared_task
@@ -202,18 +211,6 @@ def fetch_news_for_all_positions():
     for ticker in unique_tickers:
         logger.info(f"Fetching news for ticker: {ticker}")
         web_news_node({"ticker": ticker})
-
-
-# @shared_task
-# def ingest_news_all():
-#     for tkr in TICKERS:
-#         ingest_news_ticker.delay(tkr)
-#
-#
-# @shared_task
-# def ingest_news_ticker(ticker: str):
-#     cnt = ingest_for_ticker(ticker)
-#     logger.info("Ingested %s news docs for %s", cnt, ticker)
 
 
 ###############################################################################

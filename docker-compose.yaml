@@ -10,21 +10,9 @@ services:
       POSTGRES_DB: 'trade_smart_api'
     volumes:
       - ./data:/var/lib/postgresql/data
-  chroma:
-      image: ghcr.io/chroma-core/chroma:1.0.16.dev44
-      volumes: [ "chroma-data:/chroma" ]
-      ports: [ "8002:8000" ]
 
-  ollama:
-      image: ollama/ollama
-      ports:
-        - "11434:11434"
-      tty: true
-      volumes: [ "ollama:/root/.ollama" ]
-      environment:
-        OLLAMA_MODELS: "llama3.2:3b"
+
 
 
 volumes:
     chroma-data:
-    ollama:

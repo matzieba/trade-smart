@@ -29,3 +29,6 @@ langchain_community
 langchain-ollama
 duckduckgo-search
 feedparser
+alpha-vantage
+pandas_datareader
+langchain_openai
