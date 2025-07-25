@@ -6,6 +6,7 @@ from langgraph.graph import StateGraph, END
 from trade_smart.agent_service import tools
 from trade_smart.agent_service.news_macro import web_news_node
 from trade_smart.agent_service.synth_llm import synth_llm_node
+from trade_smart.services.email_service import send_advice_email
 
 from trade_smart.analytics.portfolio_analyser import analyse
 from trade_smart.analytics.ta_engine import calculate_indicators

@@ -46,7 +46,12 @@ def _etf_sentiment(ticker: str) -> Dict[str, Any]:
     holdings = get_etf_constituents(ticker, top_n=3)
     if not holdings:
         headlines, raw_news = gather_recent_headlines(ticker)
-        sentiment_result = classify_sentiment(ticker, headlines)
+        sentiment_results = classify_sentiment([(ticker, headlines)])
+        sentiment_result = (
+            sentiment_results[0]
+            if sentiment_results
+            else {"summary": "No sentiment", "score": 0.0}
+        )
         _save_news_articles(ticker, raw_news, sentiment_result["score"])
         return sentiment_result
 
@@ -74,22 +79,30 @@ def _etf_sentiment(ticker: str) -> Dict[str, Any]:
             translated_holdings.append((holding_identifier, weight))
     holdings = translated_holdings
 
+    news_items_for_batch = []
+    raw_news_data_map = {}
+
     for holding_ticker, _ in holdings:
         try:
             headlines, raw_news = gather_recent_headlines(holding_ticker)
-            sentiment_result = classify_sentiment(holding_ticker, headlines)
-            score = Decimal(str(sentiment_result.get("score", 0.0)))
-            summary = sentiment_result.get("summary", "")
-
-            total_score += score
-            num_scores += 1
-            if summary:
-                all_summaries.append(f"{holding_ticker}: {summary}")
-
-            _save_news_articles(holding_ticker, raw_news, score)
-
+            news_items_for_batch.append((holding_ticker, headlines))
+            raw_news_data_map[holding_ticker] = raw_news
         except Exception as exc:
-            logger.warning(f"Error processing sentiment for {holding_ticker}: {exc}")
+            logger.warning(f"Error gathering headlines for {holding_ticker}: {exc}")
+
+    batched_sentiment_results = classify_sentiment(news_items_for_batch)
+
+    for sentiment_result in batched_sentiment_results:
+        ticker = sentiment_result["ticker"]
+        score = Decimal(str(sentiment_result.get("score", 0.0)))
+        summary = sentiment_result.get("summary", "")
+
+        total_score += score
+        num_scores += 1
+        if summary:
+            all_summaries.append(f"{ticker}: {summary}")
+
+        _save_news_articles(ticker, raw_news_data_map.get(ticker, []), score)
 
     if num_scores > 0:
         avg_score = total_score / num_scores
@@ -169,19 +182,19 @@ def _yfinance_news(ticker: str, limit: int = 25) -> List[Dict]:
 
 
 def _save_news_articles(
-    ticker: str, raw_news_data: List[Dict], sentiment_score: float | None = None
+    ticker: str, raw_news_data: List[Dict], sentiment_score: Decimal | str | float
 ):
     articles_to_create = []
     for item in raw_news_data:
-        title = item.get("title") or item.get("title_text", "")
-        url = item.get("link") or item.get("url", "")
-        source = item.get("provider", "") or item.get("source", "")
+        title = item.get("content").get("title") or item.get("title_text", "")
+        url = item.get("content").get("canonicalUrl").get("url") or item.get("url", "")
+        source = item.get("content").get("provider", "").get("displayName") or item.get(
+            "source", ""
+        )
 
         published_at = None
-        if "published" in item:
-            published_at = dt.datetime.fromtimestamp(
-                item["published"], tz=dt.timezone.utc
-            )
+        if "pubDate" in item.get("content"):
+            published_at = dt.datetime.fromisoformat(item.get("content")["pubDate"])
         elif "time_published" in item:
             published_at = dt.datetime.strptime(item["time_published"], "%Y%m%d%H%M%S")
             # Alpha Vantage times are UTC, but not timezone-aware
@@ -249,7 +262,7 @@ def gather_recent_headlines(ticker: str) -> tuple[List[str], List[Dict]]:
         or _duckduckgo_news(ticker)
     )
 
-    titles = [r.get("content").get("title") or r.get("title_text", "") for r in raw]
+    titles = [r.get("content", {}).get("title") or r.get("title_text", "") for r in raw]
     seen, uniq = set(), []
     for t in titles:
         if t and t not in seen:
@@ -283,30 +296,47 @@ def _safe_json(response: str) -> Dict[str, Any] | None:
     return None
 
 
-def classify_sentiment(ticker: str, headlines: List[str]) -> Dict[str, Any]:
-    if not headlines:
-        return {"summary": "No fresh headlines", "score": 0.0}
+from typing import List, Dict, Any, Tuple
 
-    joined = "\n".join(f"- {h}" for h in headlines)
+
+def classify_sentiment(news_items: List[Tuple[str, List[str]]]) -> List[Dict[str, Any]]:
+    results = []
+    if not news_items:
+        return results
+
     llm = _get_llm()
-    prompt = f"{_SYSTEM_PROMPT}\n" f"HEADLINES (newest first):\n{joined}"
+    for ticker, headlines in news_items:
+        if not headlines:
+            results.append(
+                {"ticker": ticker, "summary": "No fresh headlines", "score": 0.0}
+            )
+            continue
 
-    resp = llm.invoke(prompt)
-    js = _safe_json(resp.content)
-    if js:
-        sentiment_score = float(js.get("score", 0.0))
-        sentiment_summary = str(js.get("summary", ""))
-        LLMSentiment.objects.create(
-            ticker=ticker,
-            score=Decimal(str(sentiment_score)),
-            summary=sentiment_summary,
-        )
-        return {
-            "summary": sentiment_summary,
-            "score": sentiment_score,
-        }
+        joined = "\n".join(f"- {h}" for h in headlines)
+        prompt = f"{_SYSTEM_PROMPT}\n" f"HEADLINES (newest first):\n{joined}"
 
-    return {"summary": "LLM parse error", "score": 0.0}
+        resp = llm.invoke(prompt)
+        js = _safe_json(resp.content)
+        if js:
+            sentiment_score = float(js.get("score", 0.0))
+            sentiment_summary = str(js.get("summary", ""))
+            LLMSentiment.objects.create(
+                ticker=ticker,
+                score=Decimal(str(sentiment_score)),
+                summary=sentiment_summary,
+            )
+            results.append(
+                {
+                    "ticker": ticker,
+                    "summary": sentiment_summary,
+                    "score": sentiment_score,
+                }
+            )
+        else:
+            results.append(
+                {"ticker": ticker, "summary": "LLM parse error", "score": 0.0}
+            )
+    return results
 
 
 # --------------------------------------------------------------------------- #
@@ -318,8 +348,12 @@ def web_news_node(state: Dict[str, Any]) -> Dict[str, Any]:
     else:
         headlines, raw_news = gather_recent_headlines(ticker)
         state["raw_headlines"] = headlines
-        sentiment_result = classify_sentiment(ticker, headlines)
-        state["news_macro"] = sentiment_result
+        sentiment_results = classify_sentiment([(ticker, headlines)])
+        sentiment_result = (
+            sentiment_results[0]
+            if sentiment_results
+            else {"summary": "No sentiment", "score": 0.0}
+        )
         _save_news_articles(ticker, raw_news, sentiment_result["score"])
     return state
 

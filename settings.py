@@ -171,3 +171,8 @@ CELERY_BEAT_SCHEDULE = {
 }
 ALPHAVANTAGE_KEY = os.environ.get("ALPHAVANTAGE_KEY" "")
 FMP_KEY = os.environ.get("FMP_KEY" "")
+
+SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
+FROM_EMAIL = os.environ.get("FROM_EMAIL", "")
+SMTP_PORT = os.environ.get("SMTP_PORT", "")
+SMTP_SERVER_HOST = os.environ.get("SMTP_SERVER_HOST", "")

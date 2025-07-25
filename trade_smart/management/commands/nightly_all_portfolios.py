@@ -11,5 +11,5 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         # fetch_all_tickers()
-        # nightly_all_portfolios()
-        fetch_news_for_all_positions()
+        nightly_all_portfolios()
+        # fetch_news_for_all_positions()

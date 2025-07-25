@@ -22,7 +22,7 @@ services:
       tty: true
       volumes: [ "ollama:/root/.ollama" ]
       environment:
-        OLLAMA_MODELS: "llama3.1:8b"
+        OLLAMA_MODELS: "llama3.2:3b"
 
 
 volumes:
