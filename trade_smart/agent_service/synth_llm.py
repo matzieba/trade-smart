@@ -59,7 +59,9 @@ def synth_llm_node(state):
         news=state.get("news_macro"),
         price=state.get("last_px"),
     )
-    resp = llm.invoke([SYS, HumanMessage(content=prompt)])
+    resp = llm.invoke(
+        [SYS, HumanMessage(content=prompt)], response_format={"type": "json_object"}
+    )
     try:
         js = json.loads(resp.content if hasattr(resp, "content") else resp)
         state["advice"] = {
@@ -67,7 +69,7 @@ def synth_llm_node(state):
             "confidence": js["confidence"],
             "rationale": js["rationale"],
         }
-    except Exception:
+    except Exception as e:
         state["advice"] = {
             "action": "HOLD",
             "confidence": 0.3,

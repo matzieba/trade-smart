@@ -59,7 +59,6 @@ def _etf_sentiment(ticker: str) -> Dict[str, Any]:
     num_scores = 0
     all_summaries = []
 
-    # Translate holding names to tickers where necessary
     translated_holdings = []
     for holding_identifier, weight in holdings:
         # Heuristic: if it contains a space, it's likely a name
@@ -268,7 +267,7 @@ def gather_recent_headlines(ticker: str) -> tuple[List[str], List[Dict]]:
         if t and t not in seen:
             uniq.append(t)
             seen.add(t)
-    return uniq[:25], raw
+    return uniq, raw
 
 
 # --------------------------------------------------------------------------- #

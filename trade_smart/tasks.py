@@ -10,6 +10,7 @@ from celery import shared_task
 from celery.schedules import crontab
 from django.conf import settings
 from django.db import IntegrityError, transaction
+import datetime as dt
 
 from trade_smart.agent_service.runner import run_for_portfolio
 from trade_smart.analytics.ta_engine import calculate_indicators
@@ -19,6 +20,7 @@ from trade_smart.models.analytics import TechnicalIndicator
 from trade_smart.models.market_data import MarketData
 from trade_smart.agent_service.news_macro import web_news_node
 from trade_smart.services.email_service import EmailNotificationService
+from trade_smart.services.market_data import MarketDataFetcher, UpstreamError
 
 logger = logging.getLogger(__name__)
 
@@ -32,93 +34,60 @@ DEFAULT_LOOKBACK_DAYS: int = getattr(settings, "MARKET_LOOKBACK_DAYS", 365)
 ###############################################################################
 
 
-def _download_ohlcv(ticker: str, *, days: int = DEFAULT_LOOKBACK_DAYS) -> pd.DataFrame:
-    """
-    Download the last *days* of adjusted OHLCV data for *ticker* and
-    guarantee a MultiIndex column layout (Open/High/… , <TICKER>).
-    """
-    end = date.today()
-    start = end - timedelta(days=days)
-
-    df = yf.download(
-        ticker,
-        start=start.isoformat(),
-        end=end.isoformat(),
-        progress=False,
-        auto_adjust=True,
-    )
-
-    if df.empty:
-        logger.info("No market data returned for ticker=%s", ticker)
-        return df
-    currency = ""
-    try:
-        currency = yf.Ticker(ticker).fast_info.get("currency")
-    except Exception:
-        logger.info(f"No currency found for ticker={ticker}")
-    if currency in ("GBp", "GBX"):
-        price_cols = ["Open", "High", "Low", "Close"]
-        df[price_cols] = df[price_cols] / 100.0  # pence -> pounds
-    if not isinstance(df.columns, pd.MultiIndex):
-        df.columns = pd.MultiIndex.from_product([df.columns, [ticker]])
-
-    return df
-
-
-def _df_to_objects(df: pd.DataFrame, ticker: str) -> List[MarketData]:
-
-    objects: List[MarketData] = []
-    logger.debug("DataFrame columns for %s: %s", ticker, df.columns)
-    col_tickers = df.columns.get_level_values(1).unique()
-    if ticker not in col_tickers:
-        actual_ticker = col_tickers[0] if len(col_tickers) == 1 else None
-        logger.warning(
-            "Expected ticker '%s' not in DataFrame columns: %s", ticker, col_tickers
-        )
-    else:
-        actual_ticker = ticker
-
-    if not actual_ticker:
-        logger.error(
-            "Frame columns do not contain expected ticker, skipping all rows for %s",
-            ticker,
-        )
-        return []
-
-    for ts, row in df.iterrows():
-        try:
-            objects.append(
-                MarketData(
-                    ticker=actual_ticker,
-                    date=ts.date(),
-                    open=row["Open"][actual_ticker],
-                    high=row["High"][actual_ticker],
-                    low=row["Low"][actual_ticker],
-                    close=row["Close"][actual_ticker],
-                    volume=row["Volume"][actual_ticker],
-                )
-            )
-        except (KeyError, IndexError, TypeError) as exc:  # malformed data row
-            logger.warning(
-                "Malformed row for %s on %s: %s",
-                actual_ticker,
-                ts,
-                exc,
-                exc_info=True,
-            )
-
-    return objects
-
-
 ###############################################################################
 # Celery tasks
 ###############################################################################
+
+_fetcher = MarketDataFetcher()
+
+
+def _download_ohlcv(
+    ticker: str,
+    lookback_days: int = DEFAULT_LOOKBACK_DAYS,
+) -> pd.DataFrame:
+    """
+    Wrapper around MarketDataFetcher that calculates start/end dates.
+    Returns a *normalised* pandas DataFrame with columns:
+    [open, high, low, close, volume] and index = date (UTC).
+    """
+    end = dt.date.today()
+    start = end - dt.timedelta(days=lookback_days)
+    return _fetcher.get_ohlcv(ticker, start=start, end=end, interval="1d")
+
+
+def _df_to_objects(df: pd.DataFrame, ticker: str) -> list[MarketData]:
+    """
+    Convert a DataFrame row-by-row into Django ORM objects.
+    Works no matter whether the original index was named Date, date or None.
+    """
+    # 1) Move index -> column called 'date'
+    df = df.copy()
+    df.index.name = "date"  # guarantees a name
+    df.reset_index(inplace=True)
+
+    # 2) Lower-case every column so we can safely do row.xxx
+    df.columns = [c.lower() for c in df.columns]
+
+    # 3) Build ORM instances
+    return [
+        MarketData(
+            ticker=ticker.upper(),
+            date=pd.to_datetime(row.date).date(),  # cast to python date
+            open=row.open,
+            high=row.high,
+            low=row.low,
+            close=row.close,
+            volume=int(row.volume),
+        )
+        for row in df.itertuples(index=False)
+    ]
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def fetch_daily_ohlcv(self, ticker: str) -> str:
     """
     Celery task: download OHLCV data for *ticker* and upsert into DB.
+    Falls back yfinance ➜ Alpha Vantage ➜ FMP automatically.
     """
     try:
         df = _download_ohlcv(ticker)
@@ -129,7 +98,6 @@ def fetch_daily_ohlcv(self, ticker: str) -> str:
         if not objects:
             return f"No valid rows for {ticker}"
 
-        # Atomic upsert (Django ≥4.1)
         with transaction.atomic():
             MarketData.objects.bulk_create(
                 objects,
@@ -142,12 +110,21 @@ def fetch_daily_ohlcv(self, ticker: str) -> str:
         logger.info(msg)
         return msg
 
+    # ------------------------------------------------------------------ #
+    # Error handling & retry strategy
+    # ------------------------------------------------------------------ #
+    except UpstreamError as exc:
+        # All providers exhausted → retry later
+        logger.warning("Upstream error for %s: %s", ticker, exc)
+        raise self.retry(exc=exc)
+
     except (IntegrityError, ValueError) as exc:
-        # Data problems – do not retry
+        # Data integrity problems – do NOT retry
         logger.error("Data error for %s: %s", ticker, exc, exc_info=True)
         raise
+
     except Exception as exc:  # noqa: BLE001
-        # Network / API problems – retry
+        # Network hiccup, JSON decode, etc. – safe to retry
         logger.warning("Error fetching data for %s: %s", ticker, exc, exc_info=True)
         raise self.retry(exc=exc)
 
@@ -155,9 +132,10 @@ def fetch_daily_ohlcv(self, ticker: str) -> str:
 @shared_task
 def fetch_all_tickers() -> None:
     """
-    Enqueue a download task for every configured ticker.
+    Enqueue a download task for every distinct ticker that exists
+    in the user's portfolios.
     """
-    tickers = [position.ticker for position in Position.objects.all()]
+    tickers = Position.objects.values_list("ticker", flat=True).distinct()
     for symbol in tickers:
         fetch_daily_ohlcv.delay(symbol)
 
