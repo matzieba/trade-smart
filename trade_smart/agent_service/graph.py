@@ -3,13 +3,11 @@ from typing import TypedDict, Dict, Any
 from langchain_core.runnables import Runnable
 from langgraph.graph import StateGraph, END
 
-from trade_smart.agent_service import tools
-from trade_smart.agent_service.news_macro import web_news_node
-from trade_smart.agent_service.synth_llm import synth_llm_node
-
-
-from trade_smart.analytics.portfolio_analyser import analyse
-from trade_smart.analytics.ta_engine import calculate_indicators
+from trade_smart.agent_service.nodes.news_macro_node import web_news_node
+from trade_smart.agent_service.nodes.market_node import market_node
+from trade_smart.agent_service.nodes.pf_node import pf_node
+from trade_smart.agent_service.nodes.tech_node import tech_node
+from trade_smart.agent_service.nodes.synth_llm import synth_llm_node
 from trade_smart.models import Portfolio
 
 
@@ -21,31 +19,6 @@ class AdviceState(TypedDict, total=False):
     pf_metrics: Dict[str, Any]
     news_macro: Dict[str, Any]
     advice: Dict[str, Any]
-
-
-# --- Node-1 Market node ------------------------------------------------------
-def market_node(state):
-    ticker = state["ticker"]
-    state["last_px"] = tools.last_price(ticker)
-    return state
-
-
-# --- Node-2 Technical node ---------------------------------------------------
-def tech_node(state):
-    ticker = state["ticker"]
-    ind = calculate_indicators(ticker)  # returns list[TechnicalIndicator]
-    # convert to dict latest values
-    latest = {obj.name: float(obj.value) for obj in ind[-6:]} if ind else {}
-    state["tech"] = latest
-    return state
-
-
-# --- Node-3 Portfolio node ---------------------------------------------------
-def pf_node(state):
-    pf = state["portfolio"]
-    metrics = analyse(pf)
-    state["pf_metrics"] = metrics
-    return state
 
 
 # -------- Assemble DAG -------------------------------------------------------

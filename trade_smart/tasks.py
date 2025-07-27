@@ -12,13 +12,14 @@ from django.conf import settings
 from django.db import IntegrityError, transaction
 import datetime as dt
 
+from trade_smart.agent_service.nodes.news_macro_node import web_news_node
 from trade_smart.agent_service.runner import run_for_portfolio
 from trade_smart.analytics.ta_engine import calculate_indicators
 from trade_smart.celery import app
 from trade_smart.models import Portfolio, Position
 from trade_smart.models.analytics import TechnicalIndicator
 from trade_smart.models.market_data import MarketData
-from trade_smart.agent_service.news_macro import web_news_node
+
 from trade_smart.services.email_service import EmailNotificationService
 from trade_smart.services.market_data import MarketDataFetcher, UpstreamError
 

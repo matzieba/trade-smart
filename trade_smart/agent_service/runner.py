@@ -24,5 +24,4 @@ def run_for_portfolio(pf: Portfolio) -> bool:
         except Exception as e:
             print(f"Error evaluating position {pos.ticker} for portfolio {pf.id}: {e}")
             all_evaluated = False
-            # Optionally, log the error or handle it more gracefully
     return all_evaluated

@@ -1,11 +1,10 @@
 from __future__ import annotations
 import logging
-from decimal import Decimal
+
 from typing import Dict, List, Any
 
 import numpy as np
 import pandas as pd
-from django.db.models import F
 
 from trade_smart.models.market_data import MarketData
 from trade_smart.models.portfolio import Portfolio
@@ -22,15 +21,13 @@ def _price_matrix(tickers: List[str], days: int = 252) -> pd.DataFrame:
     df = pd.DataFrame.from_records(qs)
     if df.empty:
         return pd.DataFrame()
-
-    # ① make sure 'close' is float, not Decimal
     df["close"] = df["close"].astype(float)
 
     return (
         df.pivot(index="date", columns="ticker", values="close")
         .sort_index()
         .ffill()
-        .astype(float)  # ② enforce float dtype on the whole frame
+        .astype(float)
     )
 
 
