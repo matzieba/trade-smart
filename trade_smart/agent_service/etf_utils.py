@@ -122,15 +122,14 @@ def _fmp(sym: str, top_n: int = 10) -> list[Tuple[str, float]]:
 
 
 # ------------------------------------------------------------------ public
-def get_etf_constituents(symbol: str, top_n: int = 10) -> list[Tuple[str, float]]:
+def get_etf_constituents(symbol: str, top_n: int = 10) -> list[tuple[str, float]]:
     """
     1) yfinance (free, no key, new endpoint)
     2) Financial-Modeling-Prep (free tier but needs API key)
     3) return []  -> treat as 'probably not an ETF'
     """
-
-    res = _yfinance(symbol, top_n) or _fmp(symbol, top_n) or []  # optional
-    _cache[symbol] = (dt.datetime.utcnow(), res)
+    res = _yfinance(symbol, top_n) or _fmp(symbol, top_n) or []
+    _cache[symbol] = (dt.datetime.now(dt.timezone.utc), res)
     return res
 
 
