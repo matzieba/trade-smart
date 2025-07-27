@@ -7,6 +7,7 @@ class NewsArticle(TimeStampedModel):
     headline = models.TextField()
     source = models.CharField(max_length=60)
     url = models.URLField(max_length=300)
+    body = models.TextField(null=True, blank=True)
     published_at = models.DateTimeField(db_index=True)
     sentiment = models.DecimalField(max_digits=4, decimal_places=3, null=True)
 

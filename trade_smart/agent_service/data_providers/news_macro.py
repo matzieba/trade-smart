@@ -9,6 +9,7 @@ from decimal import Decimal
 
 import requests
 from duckduckgo_search import DDGS
+from goose3 import Goose
 
 import settings
 from trade_smart.agent_service.data_providers.etf_utils import (
@@ -94,16 +95,18 @@ def _etf_sentiment(ticker: str) -> Dict[str, Any]:
     batched_sentiment_results = classify_sentiment(news_items_for_batch)
 
     for sentiment_result in batched_sentiment_results:
-        ticker = sentiment_result["ticker"]
+        holding_ticker = sentiment_result["ticker"]
         score = Decimal(str(sentiment_result.get("score", 0.0)))
         summary = sentiment_result.get("summary", "")
 
         total_score += score
         num_scores += 1
         if summary:
-            all_summaries.append(f"{ticker}: {summary}")
+            all_summaries.append(f"{holding_ticker}: {summary}")
 
-        _save_news_articles(ticker, raw_news_data_map.get(ticker, []), score)
+        _save_news_articles(
+            holding_ticker, raw_news_data_map.get(holding_ticker, []), score
+        )
 
     if num_scores > 0:
         avg_score = total_score / num_scores
@@ -183,8 +186,12 @@ def _yfinance_news(ticker: str, limit: int = 25) -> List[Dict]:
 
 
 def _save_news_articles(
-    ticker: str, raw_news_data: List[Dict], sentiment_score: Decimal | str | float
+    ticker: str,
+    raw_news_data: List[Dict],
+    sentiment_score: Decimal | str | float,
+    primary_article_url: str = None,
 ):
+    g = Goose()
     articles_to_create = []
     for item in raw_news_data:
         title = item.get("content").get("title") or item.get("title_text", "")
@@ -192,6 +199,14 @@ def _save_news_articles(
         source = item.get("content").get("provider", "").get("displayName") or item.get(
             "source", ""
         )
+        body = item.get("content", {}).get("summary")
+
+        if not body:
+            try:
+                article = g.extract(url=url)
+                body = article.cleaned_text
+            except Exception as e:
+                logger.warning(f"Could not extract article body from {url}: {e}")
 
         published_at = None
         if "pubDate" in item.get("content"):
@@ -225,6 +240,7 @@ def _save_news_articles(
                     headline=title,
                     source=source,
                     url=url,
+                    body=body,
                     published_at=published_at,
                     sentiment=sentiment,
                 )
@@ -251,7 +267,7 @@ def _save_news_articles(
 
 
 # --------------------------------------------------------------------------- #
-def gather_recent_headlines(ticker: str) -> tuple[List[str], List[Dict]]:
+def gather_recent_headlines(ticker: str) -> tuple[List[Dict[str, str]], List[Dict]]:
     """
     (1) yfinance  → (2) Alpha-Vantage  → (3) Yahoo-RSS  → (4) DuckDuckGo
     Stop at first source that returns anything ≥1 headline.
@@ -263,21 +279,22 @@ def gather_recent_headlines(ticker: str) -> tuple[List[str], List[Dict]]:
         or _duckduckgo_news(ticker)
     )
 
-    titles = [r.get("content", {}).get("title") or r.get("title_text", "") for r in raw]
-    seen, uniq = set(), []
-    for t in titles:
-        if t and t not in seen:
-            uniq.append(t)
-            seen.add(t)
-    return uniq, raw
+    headlines = []
+    for r in raw:
+        headline = r.get("content", {}).get("title") or r.get("title_text", "")
+        body = r.get("content", {}).get("summary")
+        url = r.get("content", {}).get("canonicalUrl", {}).get("url") or r.get(
+            "url", ""
+        )
+        if headline:
+            headlines.append({"headline": headline, "body": body, "url": url})
+
+    return headlines, raw
 
 
-# --------------------------------------------------------------------------- #
-#   SENTIMENT  (robust JSON extraction)
-# --------------------------------------------------------------------------- #
 _SYSTEM_PROMPT = (
     "You are a JSON-only sentiment classifier for equity news.\n"
-    'Return exactly: {"summary": "…", "score": 0.34}\n'
+    'Return exactly: {"summary": "…", "score": ∈ [-1,1]}\n'
     "score ∈ [-1,1]. No other text."
 )
 
@@ -300,7 +317,9 @@ def _safe_json(response: str) -> Dict[str, Any] | None:
 from typing import List, Dict, Any, Tuple
 
 
-def classify_sentiment(news_items: List[Tuple[str, List[str]]]) -> List[Dict[str, Any]]:
+def classify_sentiment(
+    news_items: List[Tuple[str, List[Dict[str, str]]]]
+) -> List[Dict[str, Any]]:
     results = []
     if not news_items:
         return results
@@ -355,7 +374,11 @@ def web_news_node(state: Dict[str, Any]) -> Dict[str, Any]:
             if sentiment_results
             else {"summary": "No sentiment", "score": 0.0}
         )
-        _save_news_articles(ticker, raw_news, sentiment_result["score"])
+        _save_news_articles(
+            ticker,
+            raw_news,
+            sentiment_result["score"],
+        )
     return state
 
 

@@ -6,12 +6,6 @@ from trade_smart.services.llm import get_llm
 
 llm = get_llm()
 
-SYS = SystemMessage(
-    content=(
-        "You are WiseTrade, a disciplined investment assistant. "
-        "You never guess wildly, you reason step-by-step, and you output ONLY valid JSON."
-    )
-)
 
 SYS = SystemMessage(
     content=(
@@ -29,8 +23,8 @@ SYS = SystemMessage(
         "• Never invent data; when something is missing, down-weight confidence.\n"
         "• Output ONLY a minified JSON object with exactly these keys:\n"
         '      {"action": "BUY|SELL|HOLD|REBAL", '
-        '       "confidence": float, '
-        '       "rationale": "≤50 words, must cite at least one metric"}\n'
+        '       "confidence": 0.0, '
+        '       "rationale": "≤50 words"}\n'
         "• confidence must be between 0.0 and 1.0 and represent the strength / "
         "  agreement of the signals.\n"
         "• You must reason internally but expose ONLY the JSON in the final answer."
