@@ -11,9 +11,13 @@ import requests
 from duckduckgo_search import DDGS
 
 import settings
-from trade_smart.agent_service.etf_utils import get_etf_constituents, is_etf
+from trade_smart.agent_service.data_providers.etf_utils import (
+    get_etf_constituents,
+    is_etf,
+)
 from trade_smart.models.news_article import NewsArticle
 from trade_smart.models.llm_sentiment import LLMSentiment
+from trade_smart.services.llm import get_llm
 
 try:
     import feedparser
@@ -29,21 +33,19 @@ _llm = None  # lazy-load to avoid circular import
 #   HELPERS
 # --------------------------------------------------------------------------- #
 def _utc_now() -> dt.datetime:
-    """timezone-aware ‘now’ in UTC (no deprecation warnings)."""
     return dt.datetime.now(dt.timezone.utc)
 
 
 def _get_llm():
     global _llm
     if _llm is None:
-        from trade_smart.agent_service.llm import get_llm
 
         _llm = get_llm()
     return _llm
 
 
 def _etf_sentiment(ticker: str) -> Dict[str, Any]:
-    holdings = get_etf_constituents(ticker, top_n=3)
+    holdings = get_etf_constituents(ticker, top_n=5)
     if not holdings:
         headlines, raw_news = gather_recent_headlines(ticker)
         sentiment_results = classify_sentiment([(ticker, headlines)])
@@ -367,13 +369,4 @@ def translate_holding_to_ticker(holding_name: str) -> str:
         f"Given the holding name '{holding_name}', what is its stock ticker?"
     )
     response = llm.invoke(prompt)
-    # The response should be just the ticker, so we can strip any extra whitespace.
     return response.content.strip()
-
-
-# manual test:  python -m trade_smart.agent_service.news_macro AAPL
-if __name__ == "__main__":  # pragma: no cover
-    import sys
-    import pprint
-
-    pprint.pp(web_news_node({"ticker": sys.argv[1] if len(sys.argv) > 1 else "AAPL"}))

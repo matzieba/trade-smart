@@ -2,7 +2,7 @@ import json
 
 from langchain.schema import SystemMessage, HumanMessage, AIMessage
 
-from trade_smart.agent_service.llm import get_llm
+from trade_smart.services.llm import get_llm
 
 llm = get_llm()
 
