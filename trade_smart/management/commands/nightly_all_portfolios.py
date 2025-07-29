@@ -11,14 +11,16 @@ from trade_smart.tasks import (
     _download_ohlcv,
     _df_to_objects,
     logger,
+    compute_indicators,
 )
 
 
 class Command(BaseCommand):
 
     def handle(self, *args, **options):
-        # fetch_daily_ohlcv('VVSM.HA')
+        # fetch_daily_ohlcv('ETFBCASH.WA')
         # fetch_all_tickers()
-        # nightly_all_portfolios()
+        nightly_all_portfolios()
         # fetch_news_for_all_positions()
-        issue_portfolio_advice(2)
+        # issue_portfolio_advice(2)
+        # compute_indicators('ETFBCASH.WA')

@@ -85,7 +85,7 @@ def _df_to_objects(df: pd.DataFrame, ticker: str) -> list[MarketData]:
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
-def fetch_daily_ohlcv(self, ticker: str) -> str:
+def fetch_daily_ohlcv(ticker: str) -> str:
     """
     Celery task: download OHLCV data for *ticker* and upsert into DB.
     Falls back yfinance ➜ Alpha Vantage ➜ FMP automatically.
@@ -117,7 +117,7 @@ def fetch_daily_ohlcv(self, ticker: str) -> str:
     except UpstreamError as exc:
         # All providers exhausted → retry later
         logger.warning("Upstream error for %s: %s", ticker, exc)
-        raise self.retry(exc=exc)
+        raise
 
     except (IntegrityError, ValueError) as exc:
         # Data integrity problems – do NOT retry
@@ -127,7 +127,7 @@ def fetch_daily_ohlcv(self, ticker: str) -> str:
     except Exception as exc:  # noqa: BLE001
         # Network hiccup, JSON decode, etc. – safe to retry
         logger.warning("Error fetching data for %s: %s", ticker, exc, exc_info=True)
-        raise self.retry(exc=exc)
+        raise
 
 
 @shared_task

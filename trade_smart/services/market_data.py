@@ -25,32 +25,17 @@ ALPHAVANTAGE_KEY = getattr(settings, "ALPHAVANTAGE_KEY", os.getenv("ALPHAVANTAGE
 FMP_KEY = getattr(settings, "FMP_KEY", os.getenv("FMP_KEY"))
 AlphaFunc = Literal["TIME_SERIES_DAILY_ADJUSTED", "TIME_SERIES_INTRADAY"]
 CFD_ALIASES: dict[str, dict[str, str]] = {
-    #  broker code   yfinance      Alpha-V  FMP
     "US100": {"yf": "NQ=F", "av": "NDX", "fmp": "NDX"},
     "US500": {"yf": "ES=F", "av": "SPX", "fmp": "SPX"},
     "US30": {"yf": "YM=F", "av": "DJI", "fmp": "DJI"},
     "DE40": {"yf": "FDAX.DE", "av": "GDAXI", "fmp": "GDAXI"},
-    # add more as required…
 }
-
-
-@staticmethod
-def _alias(symbol: str, provider: str) -> str:
-    """
-    Return the provider-specific symbol.
-    If no alias exists we simply return the original ticker.
-    """
-    base = symbol.upper()
-    if base in CFD_ALIASES and provider in CFD_ALIASES[base]:
-        return CFD_ALIASES[base][provider]
-
-    # Previous generic index aliases (still useful)
-    GENERIC = {
-        "^": "" if provider == "av" else "^",
+CFD_ALIASES.update(
+    {
+        "VVSM.HA": {"yf": "VVSM.DE"},
+        "ETFBCASH.WA": {"yf": "ETFBCASH.WA"},
     }
-    if base.startswith("^") and provider == "av":
-        return base.lstrip("^")
-    return base
+)
 
 
 class UpstreamError(RuntimeError):
@@ -106,11 +91,28 @@ class MarketDataFetcher:
 
         raise UpstreamError(f"Could not fetch OHLCV for {symbol} from any provider.")
 
+    def _alias(self, symbol: str, provider: str) -> str:
+        """
+        Return the provider-specific symbol.
+        If no alias exists we simply return the original ticker.
+        """
+        base = symbol.upper()
+        if base in CFD_ALIASES and provider in CFD_ALIASES[base]:
+            return CFD_ALIASES[base][provider]
+
+        # Previous generic index aliases (still useful)
+        GENERIC = {
+            "^": "" if provider == "av" else "^",
+        }
+        if base.startswith("^") and provider == "av":
+            return base.lstrip("^")
+        return base
+
     # --------------------------------------------------------------------- #
     # Providers
     # --------------------------------------------------------------------- #
-    @staticmethod
     def _from_yf(
+        self,
         symbol: str,
         start: str | dt.date | None,
         end: str | dt.date | None,
@@ -121,7 +123,7 @@ class MarketDataFetcher:
         """
         start = _parse_date(start)
         end = _parse_date(end)
-        symbol = _alias(symbol, provider="yf")
+        symbol = self._alias(symbol, provider="yf")
         yf_ticker = yf.Ticker(symbol)
         df = yf_ticker.history(
             start=start, end=end, interval=interval, auto_adjust=False
@@ -150,7 +152,7 @@ class MarketDataFetcher:
     ) -> pd.DataFrame:
         if not ALPHAVANTAGE_KEY:
             raise RuntimeError("ALPHAVANTAGE_KEY not configured")
-        symbol = _alias(symbol, provider="av")
+        symbol = self._alias(symbol, provider="av")
 
         # Map WiseTrade interval → Alpha Vantage parameters.
         if interval == "1d":
@@ -206,7 +208,7 @@ class MarketDataFetcher:
     ) -> pd.DataFrame:
         if not FMP_KEY:
             raise RuntimeError("FMP_KEY not configured")
-        symbol = _alias(symbol, provider="fmp")
+        symbol = self._alias(symbol, provider="fmp")
 
         url = (
             "https://financialmodelingprep.com/api/v3/historical-price-full/"
