@@ -35,7 +35,9 @@ backoff==2.2.1
 bcrypt==4.3.0
     # via chromadb
 beautifulsoup4==4.13.4
-    # via yfinance
+    # via
+    #   goose3
+    #   yfinance
 billiard==4.2.1
     # via celery
 black==25.1.0
@@ -79,6 +81,8 @@ coloredlogs==15.0.1
     # via onnxruntime
 coverage[toml]==7.9.2
     # via pytest-cov
+cssselect==1.3.0
+    # via goose3
 curl-cffi==0.12.0
     # via yfinance
 dataclasses-json==0.6.7
@@ -131,6 +135,8 @@ google-auth==2.40.3
     # via kubernetes
 googleapis-common-protos==1.70.0
     # via opentelemetry-exporter-otlp-proto-grpc
+goose3==3.1.19
+    # via -r requirements.in
 grpcio==1.73.1
     # via
     #   chromadb
@@ -217,6 +223,8 @@ langchain-openai==0.3.28
     # via -r requirements.in
 langchain-text-splitters==0.3.8
     # via langchain
+langdetect==1.0.9
+    # via goose3
 langgraph==0.5.2
     # via -r requirements.in
 langgraph-checkpoint==2.1.0
@@ -235,6 +243,7 @@ langsmith==0.4.5
 lxml==6.0.0
     # via
     #   duckduckgo-search
+    #   goose3
     #   pandas-datareader
 markdown-it-py==3.0.0
     # via rich
@@ -340,7 +349,9 @@ pathspec==0.12.1
 peewee==3.18.2
     # via yfinance
 pillow==11.3.0
-    # via sentence-transformers
+    # via
+    #   goose3
+    #   sentence-transformers
 platformdirs==4.3.8
     # via
     #   black
@@ -367,6 +378,8 @@ protobuf==6.31.1
     #   yfinance
 psycopg2-binary==2.9.10
     # via -r requirements.in
+pyahocorasick==2.2.0
+    # via goose3
 pyasn1==0.6.1
     # via
     #   pyasn1-modules
@@ -413,6 +426,7 @@ pytest-django==4.11.1
 python-dateutil==2.9.0.post0
     # via
     #   celery
+    #   goose3
     #   kubernetes
     #   pandas
     #   posthog
@@ -447,6 +461,7 @@ regex==2024.11.6
 requests==2.32.4
     # via
     #   alpha-vantage
+    #   goose3
     #   huggingface-hub
     #   kubernetes
     #   langchain
@@ -490,6 +505,7 @@ shellingham==1.5.4
 six==1.17.0
     # via
     #   kubernetes
+    #   langdetect
     #   posthog
     #   python-dateutil
 sniffio==1.3.1
@@ -510,6 +526,7 @@ sympy==1.14.0
     #   torch
 tenacity==9.1.2
     # via
+    #   -r requirements.in
     #   chromadb
     #   langchain-community
     #   langchain-core

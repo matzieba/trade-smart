@@ -48,9 +48,9 @@ Generate advice strictly per the JSON schema in the system instructions.
 
 def synth_llm_node(state):
     prompt = FMT.format(
-        pf=state.get("pf_metrics"),
-        tech=state.get("tech"),
-        news=state.get("news_macro"),
+        pf=json.dumps(state.get("pf_metrics"), indent=2),
+        tech=json.dumps(state.get("tech"), indent=2),
+        news=json.dumps(state.get("news_macro"), indent=2),
         price=state.get("last_px"),
     )
     resp = llm.invoke(
