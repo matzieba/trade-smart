@@ -85,7 +85,7 @@ def _df_to_objects(df: pd.DataFrame, ticker: str) -> list[MarketData]:
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
-def fetch_daily_ohlcv(ticker: str) -> str:
+def fetch_daily_ohlcv(self, ticker: str) -> str:
     """
     Celery task: download OHLCV data for *ticker* and upsert into DB.
     Falls back yfinance ➜ Alpha Vantage ➜ FMP automatically.
@@ -130,8 +130,8 @@ def fetch_daily_ohlcv(ticker: str) -> str:
         raise
 
 
-@shared_task
-def fetch_all_tickers() -> None:
+@shared_task(bind=True, max_retries=2, default_retry_delay=120)
+def fetch_all_tickers(self) -> None:
     """
     Enqueue a download task for every distinct ticker that exists
     in the user's portfolios.
@@ -144,9 +144,19 @@ def fetch_all_tickers() -> None:
 @shared_task(bind=True, max_retries=2, default_retry_delay=120)
 def compute_indicators(self, ticker: str):
     try:
-        objects = calculate_indicators(ticker)
-        if not objects:
+        dataclasses = calculate_indicators(ticker)
+        if not dataclasses:
             return f"No indicator points for {ticker}"
+
+        objects = [
+            TechnicalIndicator(
+                ticker=dc.ticker,
+                date=dc.date,
+                name=dc.name,
+                value=dc.value,
+            )
+            for dc in dataclasses
+        ]
 
         with transaction.atomic():
             TechnicalIndicator.objects.bulk_create(

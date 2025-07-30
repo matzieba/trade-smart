@@ -24,7 +24,7 @@ SYS = SystemMessage(
         "• Output ONLY a minified JSON object with exactly these keys:\n"
         '      {"action": "BUY|SELL|HOLD|REBAL", '
         '       "confidence": 0.0, '
-        '       "rationale": "≤50 words"}\n'
+        '       "rationale": "≤250 words"}\n'
         "• confidence must be between 0.0 and 1.0 and represent the strength / "
         "  agreement of the signals.\n"
         "• You must reason internally but expose ONLY the JSON in the final answer."

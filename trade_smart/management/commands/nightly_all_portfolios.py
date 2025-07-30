@@ -21,8 +21,8 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         # fetch_daily_ohlcv('ETFBCASH.WA')
         # fetch_all_tickers()
+        # compute_all_indicators()
         # nightly_all_portfolios()
         # fetch_news_for_all_positions()
-        # issue_portfolio_advice(2)
+        issue_portfolio_advice(2)
         # compute_indicators('ETFBCASH.WA')
-        compute_all_indicators()
