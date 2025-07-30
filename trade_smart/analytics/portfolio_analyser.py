@@ -73,16 +73,19 @@ def analyse(
     port_ret = (returns[tickers] * pd.Series(weights)).sum(axis=1)
 
     # ----------- beta -------------------------------------------------------
-    beta = None
-    if benchmark in returns.columns:
-        pair = pd.concat(
-            [port_ret.rename("pf"), returns[benchmark].rename("bm")],
-            axis=1,
-            join="inner",
-        ).dropna()
+    if benchmark not in returns.columns:
+        return {"error": f"Benchmark '{benchmark}' data not found."}
 
-        if len(pair) > 30 and pair["bm"].var() != 0:
-            beta = pair.cov().iloc[0, 1] / pair["bm"].var()
+    pair = pd.concat(
+        [port_ret.rename("pf"), returns[benchmark].rename("bm")],
+        axis=1,
+        join="inner",
+    ).dropna()
+
+    if len(pair) > 30 and pair["bm"].var() != 0:
+        beta = pair.cov().iloc[0, 1] / pair["bm"].var()
+    else:
+        beta = None
 
     # ----------- risk -------------------------------------------------------
     var_95 = np.percentile(port_ret, 5)

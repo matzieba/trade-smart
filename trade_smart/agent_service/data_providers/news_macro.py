@@ -189,19 +189,27 @@ def _save_news_articles(
     ticker: str,
     raw_news_data: List[Dict],
     sentiment_score: Decimal | str | float,
-    primary_article_url: str = None,
 ):
     g = Goose()
     articles_to_create = []
     for item in raw_news_data:
-        title = item.get("content").get("title") or item.get("title_text", "")
-        url = item.get("content").get("canonicalUrl").get("url") or item.get("url", "")
-        source = item.get("content").get("provider", "").get("displayName") or item.get(
-            "source", ""
+        # Adapt to different news formats
+        title = (
+            item.get("title")
+            or item.get("content", {}).get("title")
+            or item.get("title_text", "")
         )
-        body = item.get("content", {}).get("summary")
+        url = (
+            item.get("url")
+            or item.get("content", {}).get("canonicalUrl", {}).get("url")
+            or item.get("link", "")
+        )
+        source = item.get("source") or item.get("content", {}).get("provider", {}).get(
+            "displayName", ""
+        )
+        body = item.get("body") or item.get("content", {}).get("summary")
 
-        if not body:
+        if not body and url:
             try:
                 article = g.extract(url=url)
                 body = article.cleaned_text
@@ -209,19 +217,18 @@ def _save_news_articles(
                 logger.warning(f"Could not extract article body from {url}: {e}")
 
         published_at = None
-        if "pubDate" in item.get("content"):
-            published_at = dt.datetime.fromisoformat(item.get("content")["pubDate"])
+        if "pubDate" in item.get("content", {}):
+            published_at = dt.datetime.fromisoformat(item["content"]["pubDate"])
         elif "time_published" in item:
-            published_at = dt.datetime.strptime(item["time_published"], "%Y%m%d%H%M%S")
-            # Alpha Vantage times are UTC, but not timezone-aware
-            published_at = published_at.replace(tzinfo=dt.timezone.utc)
+            published_at = dt.datetime.strptime(
+                item["time_published"], "%Y%m%d%H%M%S"
+            ).replace(tzinfo=dt.timezone.utc)
         elif "date" in item:
             try:
-                # DDG news date format: 'YYYY-MM-DDTHH:MM:SS'
                 published_at = dt.datetime.fromisoformat(item["date"]).replace(
                     tzinfo=dt.timezone.utc
                 )
-            except ValueError:
+            except (ValueError, TypeError):
                 pass  # Fallback if format is unexpected
 
         sentiment = None
