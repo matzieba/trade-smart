@@ -332,7 +332,27 @@ def classify_sentiment(
         return results
 
     llm = _get_llm()
+    today = dt.date.today()
+
     for ticker, headlines in news_items:
+        # Check if sentiment for this ticker and today already exists
+        existing_sentiment = LLMSentiment.objects.filter(
+            ticker=ticker, created__date=today
+        ).first()
+
+        if existing_sentiment:
+            logger.info(
+                f"Sentiment for {ticker} on {today} already exists. Skipping LLM call."
+            )
+            results.append(
+                {
+                    "ticker": ticker,
+                    "summary": existing_sentiment.summary,
+                    "score": float(existing_sentiment.score),
+                }
+            )
+            continue
+
         if not headlines:
             results.append(
                 {"ticker": ticker, "summary": "No fresh headlines", "score": 0.0}
