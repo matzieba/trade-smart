@@ -12,7 +12,7 @@ from trade_smart.poractive_proposition.agents.synth import synthesise_proposal
 
 # ─── state schema ────────────────────────────────────────────
 class ProactivePropositionState(TypedDict):
-    user_request: str
+    user_request: Dict[str, Any]
     intent: Dict[str, Any]
     hot_tickers: List[str]
     filtered_tickers: List[str]

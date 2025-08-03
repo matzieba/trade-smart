@@ -4,6 +4,8 @@ from pydantic import BaseModel, Field
 from langchain.chat_models import ChatOpenAI
 import os
 
+from trade_smart.services.llm import get_llm
+
 
 class Intent(BaseModel):
     amount: float
@@ -13,9 +15,7 @@ class Intent(BaseModel):
 
 
 def _model():
-    return ChatOpenAI(
-        model_name=os.getenv("INTENT_MODEL", "gpt-3.5-turbo"), temperature=0
-    )
+    return get_llm()
 
 
 _parser = PydanticOutputParser(pydantic_object=Intent)
@@ -35,8 +35,8 @@ Text: "{text}"
 
 def parse_intent(state):
     text = (
-        f"I want to invest {state['amount']} {state['currency']} "
-        f"for {state['horizon']} months with {state['risk']} risk."
+        f"I want to invest {state['user_request']['amount']} {state['user_request']['currency']} "
+        f"for {state['user_request']['horizon']} months with {state['user_request']['risk']} risk."
     )
     chain = prompt | _model() | _parser
     result: Intent = chain.invoke({"text": text})

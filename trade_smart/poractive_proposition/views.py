@@ -36,7 +36,7 @@ def propose(request):
         logger.info(f"Received request with data: {serializer.validated_data}")
         graph = build_graph()
         try:
-            output = graph.invoke(serializer.validated_data)
+            output = graph.invoke({"user_request": serializer.validated_data})
             logger.info(f"Successfully processed request with output: {output}")
             return Response(output)
         except Exception as exc:
