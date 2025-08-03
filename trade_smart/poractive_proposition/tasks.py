@@ -4,7 +4,7 @@ import httpx, os, json
 from trade_smart.models import Advice
 from trade_smart.models.inwestement_goal import InvestmentGoal
 
-AGENT_SVC = os.getenv("AGENT_SVC_URL", "http://agent-service:8004")
+AGENT_SVC = os.getenv("AGENT_SVC_URL", "http://localhost:8000/advice")
 
 
 @shared_task
