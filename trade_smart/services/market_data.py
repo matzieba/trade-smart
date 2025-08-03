@@ -35,6 +35,7 @@ CFD_ALIASES.update(
         "VVSM.HA": {"yf": "VVSM.DE"},
         "ETFBCASH.WA": {"yf": "ETFBCASH.WA"},
         "JSW.PL": {"yf": "JSW.WA"},
+        "ZAB.PL": {"yf": "ZAB.WA"},
     }
 )
 

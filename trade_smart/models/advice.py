@@ -1,20 +1,23 @@
-from decimal import Decimal
+from django.contrib.auth.models import User
 from django.db import models
+from model_utils import Choices
 from model_utils.models import TimeStampedModel
-from trade_smart.models.portfolio import Portfolio
+
+from trade_smart.models.inwestement_goal import InvestmentGoal
 
 
 class Advice(TimeStampedModel):
-    ACTIONS = (
-        ("BUY", "BUY"),
-        ("SELL", "SELL"),
-        ("HOLD", "HOLD"),
-        ("REBAL", "REBALANCE"),
+    ACTIONS = Choices("BUY", "SELL", "HOLD")
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    goal = models.ForeignKey(
+        InvestmentGoal, on_delete=models.CASCADE, null=True, blank=True
     )
-    portfolio = models.ForeignKey(
-        Portfolio, related_name="advices", on_delete=models.CASCADE
-    )
-    ticker = models.CharField(max_length=25, blank=True)  # empty = whole PF
-    action = models.CharField(max_length=5, choices=ACTIONS)
-    confidence = models.DecimalField(max_digits=4, decimal_places=3)  # 0-1
+    ticker = models.CharField(max_length=12)
+    action = models.CharField(choices=ACTIONS, max_length=4)
+    confidence = models.DecimalField(max_digits=5, decimal_places=2)
     rationale = models.TextField()
+    weight_pct = models.DecimalField(max_digits=5, decimal_places=2)
+
+    def __str__(self):
+        return f"{self.action} {self.ticker} for {self.user.username}"

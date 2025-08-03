@@ -34,3 +34,5 @@ alpha-vantage
 pandas_datareader
 langchain_openai
 tenacity
+pyportfolioopt
+yahooquery

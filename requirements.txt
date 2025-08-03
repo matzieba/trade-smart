@@ -37,6 +37,7 @@ bcrypt==4.3.0
 beautifulsoup4==4.13.4
     # via
     #   goose3
+    #   yahooquery
     #   yfinance
 billiard==4.2.1
     # via celery
@@ -56,11 +57,15 @@ certifi==2025.7.9
     #   kubernetes
     #   requests
 cffi==1.17.1
-    # via curl-cffi
+    # via
+    #   clarabel
+    #   curl-cffi
 charset-normalizer==3.4.2
     # via requests
 chromadb==1.0.15
     # via -r requirements.in
+clarabel==0.11.1
+    # via cvxpy
 click==8.2.1
     # via
     #   black
@@ -84,7 +89,11 @@ coverage[toml]==7.9.2
 cssselect==1.3.0
     # via goose3
 curl-cffi==0.12.0
-    # via yfinance
+    # via
+    #   yahooquery
+    #   yfinance
+cvxpy==1.7.1
+    # via pyportfolioopt
 dataclasses-json==0.6.7
     # via langchain-community
 distro==1.9.0
@@ -112,6 +121,8 @@ duckduckgo-search==8.1.1
     # via -r requirements.in
 durationpy==0.10
     # via kubernetes
+ecos==2.0.14
+    # via pyportfolioopt
 feedparser==6.0.11
     # via -r requirements.in
 filelock==3.18.0
@@ -184,11 +195,15 @@ iniconfig==2.1.0
 isort==6.0.1
     # via -r requirements.in
 jinja2==3.1.6
-    # via torch
+    # via
+    #   osqp
+    #   torch
 jiter==0.10.0
     # via openai
 joblib==1.5.1
-    # via scikit-learn
+    # via
+    #   osqp
+    #   scikit-learn
 jsonpatch==1.33
     # via langchain-core
 jsonpointer==3.0.0
@@ -245,6 +260,7 @@ lxml==6.0.0
     #   duckduckgo-search
     #   goose3
     #   pandas-datareader
+    #   yahooquery
 markdown-it-py==3.0.0
     # via rich
 markupsafe==3.0.2
@@ -274,11 +290,17 @@ networkx==3.5
 numpy==2.3.1
     # via
     #   chromadb
+    #   clarabel
+    #   cvxpy
+    #   ecos
     #   langchain-community
     #   onnxruntime
+    #   osqp
     #   pandas
+    #   pyportfolioopt
     #   scikit-learn
     #   scipy
+    #   scs
     #   transformers
     #   yfinance
 oauthlib==3.3.1
@@ -320,6 +342,8 @@ orjson==3.10.18
     #   langsmith
 ormsgpack==1.10.0
     # via langgraph-checkpoint
+osqp==1.0.4
+    # via cvxpy
 overrides==7.7.0
     # via chromadb
 packaging==24.2
@@ -333,12 +357,15 @@ packaging==24.2
     #   langsmith
     #   marshmallow
     #   onnxruntime
+    #   plotly
     #   pytest
     #   transformers
 pandas==2.3.1
     # via
     #   pandas-datareader
     #   pandas-ta
+    #   pyportfolioopt
+    #   yahooquery
     #   yfinance
 pandas-datareader==0.10.0
     # via -r requirements.in
@@ -356,6 +383,8 @@ platformdirs==4.3.8
     # via
     #   black
     #   yfinance
+plotly==5.24.1
+    # via pyportfolioopt
 pluggy==1.6.0
     # via
     #   pytest
@@ -412,6 +441,8 @@ pyjwt==2.9.0
     # via djangorestframework-simplejwt
 pypika==0.48.9
     # via chromadb
+pyportfolioopt==1.5.6
+    # via -r requirements.in
 pyproject-hooks==1.2.0
     # via build
 pytest==8.4.1
@@ -469,11 +500,14 @@ requests==2.32.4
     #   langsmith
     #   pandas-datareader
     #   posthog
+    #   requests-futures
     #   requests-oauthlib
     #   requests-toolbelt
     #   tiktoken
     #   transformers
     #   yfinance
+requests-futures==1.0.2
+    # via yahooquery
 requests-oauthlib==2.0.0
     # via kubernetes
 requests-toolbelt==1.0.0
@@ -494,8 +528,16 @@ scikit-learn==1.7.0
     # via sentence-transformers
 scipy==1.16.0
     # via
+    #   clarabel
+    #   cvxpy
+    #   ecos
+    #   osqp
+    #   pyportfolioopt
     #   scikit-learn
+    #   scs
     #   sentence-transformers
+scs==3.2.7.post2
+    # via cvxpy
 sentence-transformers==5.0.0
     # via -r requirements.in
 sgmllib3k==1.0.0
@@ -530,6 +572,7 @@ tenacity==9.1.2
     #   chromadb
     #   langchain-community
     #   langchain-core
+    #   plotly
 threadpoolctl==3.6.0
     # via scikit-learn
 tiktoken==0.9.0
@@ -547,6 +590,7 @@ tqdm==4.67.1
     #   openai
     #   sentence-transformers
     #   transformers
+    #   yahooquery
 transformers==4.53.2
     # via sentence-transformers
 typer==0.16.0
@@ -608,6 +652,8 @@ websockets==15.0.1
     #   yfinance
 xxhash==3.5.0
     # via langgraph
+yahooquery==2.4.1
+    # via -r requirements.in
 yarl==1.20.1
     # via aiohttp
 yfinance==0.2.65

@@ -182,6 +182,11 @@ def issue_portfolio_advice(portfolio_id: int):
     all_evaluated = run_for_portfolio(pf)
     if all_evaluated:
         EmailNotificationService().send_advice_email(pf)
+        logger.info(f"Successfully sent advice email for portfolio {portfolio_id}")
+    else:
+        logger.warning(
+            f"Failed to send advice email for portfolio {portfolio_id} because not all positions were evaluated."
+        )
 
 
 @shared_task
