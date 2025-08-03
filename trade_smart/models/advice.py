@@ -9,7 +9,7 @@ from trade_smart.models.inwestement_goal import InvestmentGoal
 class Advice(TimeStampedModel):
     ACTIONS = Choices("BUY", "SELL", "HOLD")
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, default=1)
     goal = models.ForeignKey(
         InvestmentGoal, on_delete=models.CASCADE, null=True, blank=True
     )
@@ -17,7 +17,7 @@ class Advice(TimeStampedModel):
     action = models.CharField(choices=ACTIONS, max_length=4)
     confidence = models.DecimalField(max_digits=5, decimal_places=2)
     rationale = models.TextField()
-    weight_pct = models.DecimalField(max_digits=5, decimal_places=2)
+    weight_pct = models.DecimalField(max_digits=5, decimal_places=2, default=0)
 
     def __str__(self):
         return f"{self.action} {self.ticker} for {self.user.username}"

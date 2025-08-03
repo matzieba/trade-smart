@@ -4,6 +4,7 @@ import logging
 from datetime import date, timedelta
 from typing import List
 
+import httpx
 import pandas as pd
 import yfinance as yf
 from celery import shared_task
@@ -16,9 +17,10 @@ from trade_smart.agent_service.nodes.news_macro_node import web_news_node
 from trade_smart.agent_service.runner import run_for_portfolio
 from trade_smart.analytics.ta_engine import calculate_indicators
 from trade_smart.celery import app
-from trade_smart.models import Portfolio, Position
+from trade_smart.models import Portfolio, Position, Advice, InvestmentGoal
 from trade_smart.models.analytics import TechnicalIndicator
 from trade_smart.models.market_data import MarketData
+
 
 from trade_smart.services.email_service import EmailNotificationService
 from trade_smart.services.market_data import MarketDataFetcher, UpstreamError
@@ -33,7 +35,7 @@ DEFAULT_LOOKBACK_DAYS: int = getattr(settings, "MARKET_LOOKBACK_DAYS", 365)
 ###############################################################################
 # Helpers (single-responsibility functions)
 ###############################################################################
-
+AGENT_SVC = getattr(settings, "AGENT_SVC_URL", "http://localhost:8000/advice")
 
 ###############################################################################
 # Celery tasks
@@ -205,6 +207,36 @@ def fetch_news_for_all_positions():
     for ticker in unique_tickers:
         logger.info(f"Fetching news for ticker: {ticker}")
         web_news_node({"ticker": ticker})
+
+
+@shared_task
+def run_proactive_proposition(goal_id: int):
+    goal = InvestmentGoal.objects.get(id=goal_id)
+
+    payload = {
+        "amount": float(goal.amount),
+        "currency": goal.currency,
+        "horizon": goal.horizon_months,
+        "risk": goal.risk_level,
+    }
+    with httpx.Client(timeout=180) as client:
+        res = client.post(f"{AGENT_SVC}/propose", json=payload)
+        res.raise_for_status()
+    data = res.json()
+
+    for row in data["portfolio"]:
+        Advice.objects.create(
+            user=goal.user,
+            goal=goal,
+            ticker=row["ticker"],
+            action="BUY",
+            confidence=row["confidence"],
+            rationale=row["rationale"],
+            weight_pct=row["weight_pct"],
+        )
+
+    goal.status = "DONE"
+    goal.save()
 
 
 ###############################################################################
