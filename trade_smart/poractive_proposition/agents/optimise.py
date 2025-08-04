@@ -1,9 +1,13 @@
+import logging
 from yahooquery import Ticker
 from pypfopt import EfficientFrontier, risk_models, expected_returns
+
+logger = logging.getLogger(__name__)
 
 
 def optimise_portfolio(state):
     symbols = state["filtered"][:20]  # keep runtime sane
+    logger.info(f"Optimising portfolio for {len(symbols)} symbols...")
 
     tk = Ticker(symbols)
     prices = (
@@ -16,6 +20,7 @@ def optimise_portfolio(state):
     ef = EfficientFrontier(mu, S)
 
     risk = state["risk"]
+    logger.info(f"Using risk profile: {risk}")
     max_w = {"low": 0.10, "medium": 0.20, "high": 0.35}[risk]
     ef.add_constraint(lambda w: w <= max_w)
 
@@ -28,4 +33,5 @@ def optimise_portfolio(state):
 
     weights = ef.clean_weights()
     state["weights"] = weights
+    logger.info(f"Portfolio optimised with weights: {weights}")
     return state

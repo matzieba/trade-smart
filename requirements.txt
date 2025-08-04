@@ -73,6 +73,7 @@ click==8.2.1
     #   click-didyoumean
     #   click-plugins
     #   click-repl
+    #   ddgs
     #   duckduckgo-search
     #   typer
     #   uvicorn
@@ -96,6 +97,8 @@ cvxpy==1.7.1
     # via pyportfolioopt
 dataclasses-json==0.6.7
     # via langchain-community
+ddgs==9.5.1
+    # via -r requirements.in
 distro==1.9.0
     # via
     #   openai
@@ -257,6 +260,7 @@ langsmith==0.4.5
     #   langchain-core
 lxml==6.0.0
     # via
+    #   ddgs
     #   duckduckgo-search
     #   goose3
     #   pandas-datareader
@@ -392,7 +396,9 @@ pluggy==1.6.0
 posthog==5.4.0
     # via chromadb
 primp==0.15.0
-    # via duckduckgo-search
+    # via
+    #   ddgs
+    #   duckduckgo-search
 prompt-toolkit==3.0.51
     # via click-repl
 propcache==0.3.2

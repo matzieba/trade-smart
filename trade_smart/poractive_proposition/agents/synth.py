@@ -1,8 +1,11 @@
-from langchain.chat_models import ChatOpenAI
+import logging
+
 from langchain.prompts import ChatPromptTemplate
 import os, datetime
 
 from trade_smart.services.llm import get_llm
+
+logger = logging.getLogger(__name__)
 
 tmpl = """You are a professional investment assistant.
 Date: {date}
@@ -26,6 +29,7 @@ If you think fewer than 3 assets suffice, say so. """
 
 
 def synthesise_proposal(state):
+    logger.info("Synthesising proposal...")
     llm = get_llm()
     prompt = ChatPromptTemplate.from_template(tmpl)
     msg = prompt.format(
@@ -33,11 +37,14 @@ def synthesise_proposal(state):
         draft=state["portfolio"],
         **{k: state[k] for k in ("amount", "currency", "horizon", "risk")},
     )
+    logger.debug(f"LLM prompt: {msg}")
     resp = llm.invoke(msg).content
+    logger.debug(f"LLM response: {resp}")
     # Assume valid JSON is returned
     import json, textwrap
 
     proposal = json.loads(resp)
+    logger.info(f"Proposal synthesised: {proposal}")
     return {
         "portfolio": proposal,
         "message_markdown": textwrap.dedent(

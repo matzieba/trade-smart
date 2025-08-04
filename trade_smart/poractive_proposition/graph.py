@@ -6,7 +6,10 @@ from trade_smart.poractive_proposition.agents.filter import quick_filter
 from trade_smart.poractive_proposition.agents.fx import convert_amount
 from trade_smart.poractive_proposition.agents.intent import parse_intent
 from trade_smart.poractive_proposition.agents.optimise import optimise_portfolio
-from trade_smart.poractive_proposition.agents.screener import get_hot_tickers
+from trade_smart.poractive_proposition.agents.screener import (
+    get_hot_tickers,
+    screener_agent,
+)
 from trade_smart.poractive_proposition.agents.synth import synthesise_proposal
 
 
@@ -25,7 +28,7 @@ def build_graph():
     sg = StateGraph(ProactivePropositionState)
 
     sg.add_node("parse", parse_intent)
-    sg.add_node("screener", get_hot_tickers)
+    sg.add_node("screener", screener_agent)
     sg.add_node("filter", quick_filter)
     sg.add_node("optimise", optimise_portfolio)
     sg.add_node("fx", convert_amount)

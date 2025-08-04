@@ -25,7 +25,7 @@ class Command(BaseCommand):
         # compute_all_indicators()
         # nightly_all_portfolios()
         # fetch_news_for_all_positions()
-        issue_portfolio_advice(1)
+        issue_portfolio_advice(2)
         # compute_indicators('ETFBCASH.WA')
         # advice_for_ticker('JSW.PL')
 

@@ -7,3 +7,4 @@ from .analytics import *
 from .advice import *
 from .news_article import *
 from .llm_sentiment import *
+from .inwestement_goal import *

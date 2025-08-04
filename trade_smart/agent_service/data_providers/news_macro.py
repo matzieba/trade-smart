@@ -8,7 +8,7 @@ from typing import List, Dict, Any
 from decimal import Decimal
 
 import requests
-from duckduckgo_search import DDGS
+from ddgs import DDGS
 from goose3 import Goose
 
 import settings
