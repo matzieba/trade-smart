@@ -44,4 +44,4 @@ def parse_intent(state):
     chain = prompt | _model() | _parser
     result: Intent = chain.invoke({"text": text})
     logger.info(f"Intent parsed: {result.dict()}")
-    return {**state, **result.dict()}
+    return {"intent": result.dict()}

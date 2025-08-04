@@ -1,60 +1,69 @@
-import logging
-
+import json, textwrap, datetime
+from typing import List
+from pydantic import BaseModel, Field, RootModel
+from langchain.output_parsers import PydanticOutputParser
 from langchain.prompts import ChatPromptTemplate
-import os, datetime
-
 from trade_smart.services.llm import get_llm
 
-logger = logging.getLogger(__name__)
 
-tmpl = """You are a professional investment assistant.
+class Asset(BaseModel):
+    ticker: str
+    qty: float = Field(..., gt=0)
+    weight_pct: float = Field(..., ge=0, le=100)
+    confidence: float = Field(..., ge=0, le=1)
+    rationale: str
+
+
+class Proposal(RootModel[List[Asset]]):
+    pass
+
+
+parser = PydanticOutputParser(pydantic_object=Proposal)
+
+PROMPT_TMPL = ChatPromptTemplate.from_template(
+    """
+You are a professional investment assistant.
+Return ONLY valid JSON that matches the schema. {format_instructions}
+
 Date: {date}
-
-Given this portfolio draft:
-{draft}
-
-User parameters:
-amount: {amount} {currency}
-horizon: {horizon} months
-risk: {risk}
-
-1. For every ticker write:
-   • recommended quantity
-   • expected 1y return range
-   • one-sentence rationale
-2. Return JSON list with keys:
-   ticker, qty, weight_pct, confidence, rationale
-
-If you think fewer than 3 assets suffice, say so. """
+Draft: {draft}
+User:
+  amount  : {amount} {currency}
+  horizon : {horizon} months
+  risk    : {risk}
+"""
+)
 
 
-def synthesise_proposal(state):
-    logger.info("Synthesising proposal...")
+def synthesise_proposal(state: dict) -> dict:
     llm = get_llm()
-    prompt = ChatPromptTemplate.from_template(tmpl)
-    msg = prompt.format(
+    prompt = PROMPT_TMPL.format(
+        format_instructions=parser.get_format_instructions(),
         date=datetime.date.today(),
-        draft=state["portfolio"],
-        **{k: state[k] for k in ("amount", "currency", "horizon", "risk")},
+        draft=state["optimised_portfolio"],
+        amount=state["intent"]["amount"],
+        currency=state["intent"]["currency"],
+        horizon=state["intent"]["horizon"],
+        risk=state["intent"]["risk"],
     )
-    logger.debug(f"LLM prompt: {msg}")
-    resp = llm.invoke(msg).content
-    logger.debug(f"LLM response: {resp}")
-    # Assume valid JSON is returned
-    import json, textwrap
 
-    proposal = json.loads(resp)
-    logger.info(f"Proposal synthesised: {proposal}")
+    llm_resp = llm.invoke(prompt)
+    proposal: Proposal = parser.parse(llm_resp.content)
+
+    # ---- convert to plain python before json.dumps ----------------------
+    proposal_list = [a.model_dump() for a in proposal.root]
+    proposal_json = json.dumps(proposal_list, indent=2)
+
     return {
-        "portfolio": proposal,
+        "proposal": proposal_list,
         "message_markdown": textwrap.dedent(
             f"""
-        ## Your Proactive Proposal  
+            ## Your Proactive Proposal  
 
-        ```json
-        {json.dumps(proposal, indent=2)}
-        ```
-        _Disclaimer: Generated automatically. Not financial advice._
+            ```json
+            {proposal_json}
+            ```
+            _Disclaimer: Generated automatically. Not financial advice._
         """
         ),
     }

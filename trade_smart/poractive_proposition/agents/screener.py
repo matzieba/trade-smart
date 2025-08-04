@@ -7,6 +7,6 @@ logger = logging.getLogger(__name__)
 
 def screener_agent(state: dict) -> dict:
     logger.info("Getting hot tickers...")
-    state["candidates"] = get_hot_tickers(limit=100)
-    logger.info(f"Found {len(state['candidates'])} hot tickers.")
-    return state
+    hot_tickers = get_hot_tickers(limit=100)
+    logger.info(f"Found {len(hot_tickers)} hot tickers.")
+    return {"hot_tickers": hot_tickers}
