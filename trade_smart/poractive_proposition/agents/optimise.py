@@ -13,7 +13,7 @@ def _build_frontier(mu, S, max_weight):
 
 
 def optimise_portfolio(state):
-    symbols = state["filtered_tickers"][:20]  # keep it fast
+    symbols = state["filtered_tickers"]
     if not symbols:
         logger.warning("No symbols to optimise, skipping.")
         return {"optimised_portfolio": {}}

@@ -8,10 +8,12 @@ from trade_smart.services.llm import get_llm
 
 class Asset(BaseModel):
     ticker: str
-    qty: float = Field(..., gt=0)
+    cash_usd: float = Field(..., gt=0)
     weight_pct: float = Field(..., ge=0, le=100)
     confidence: float = Field(..., ge=0, le=1)
-    rationale: str
+    ticker_rationale: str = Field(
+        description="One sentence (≤30 words) explaining why the ticker was picked e.g. 'Solid cash-flow, undervalued vs. peers, bullish price"
+    )
 
 
 class Proposal(RootModel[List[Asset]]):
@@ -28,9 +30,10 @@ Return ONLY valid JSON that matches the schema. {format_instructions}
 Date: {date}
 Draft: {draft}
 User:
-  amount  : {amount} {currency}
-  horizon : {horizon} months
-  risk    : {risk}
+  amount   : {amount} {currency}
+  horizon  : {horizon} months
+  risk     : {risk}
+  currency : {currency}
 """
 )
 

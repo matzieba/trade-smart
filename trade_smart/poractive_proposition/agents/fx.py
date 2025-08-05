@@ -17,11 +17,9 @@ def _fx_rate(base: str, quote: str = "USD") -> float:
 
     base, quote = base.upper(), quote.upper()
 
-    # trivial case
     if base == quote:
         return 1.0
 
-    # 1️⃣  primary – exchangerate.host
     try:
         r = requests.get(
             "https://api.exchangerate.host/convert",

@@ -36,7 +36,6 @@ def quick_filter(state):
             pe_data = pe_df.get(sym, {})
             pe = pe_data.get("forwardPE") if isinstance(pe_data, dict) else None
 
-            # Check for history data
             if history_df.empty or sym not in history_df.index.get_level_values(
                 "symbol"
             ):
@@ -46,7 +45,6 @@ def quick_filter(state):
             sym_history = history_df.loc[sym]
             sma50 = sym_history["close"].rolling(50).mean().iloc[-1]
 
-            # RSI calculation
             rsi = (
                 sym_history["close"]
                 .pct_change()
